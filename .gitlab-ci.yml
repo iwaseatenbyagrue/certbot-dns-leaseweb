@@ -28,17 +28,20 @@ before_script:
   - virtualenv venv
   - source venv/bin/activate
 
+
+build:
+  stage: build
+  script:
+    - python setup.py bdist_wheel
+  artifacts:
+    paths:
+      - dist/*.whl
+
 test:
+  stage: test
   script:
     - pip install .[test]
     # Lint codebase
     - tox -e lint
     # Run unit tests
     - tox
-
-run:
-  script:
-    - python setup.py bdist_wheel
-  artifacts:
-    paths:
-      - dist/*.whl
