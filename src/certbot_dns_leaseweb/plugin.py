@@ -48,7 +48,7 @@ class LeasewebAuthenticator(dns_common.DNSAuthenticator):
             "Leaseweb credentials INI file",
             {
                 "api_token":
-                    "an API token obtained from 'https://secure.leaseweb.com/api-client-management/'",
+                    "an API token obtained from 'https://secure.leaseweb.com/api-client-management/'", # pylint: disable=line-too-long
             },
         )
 

@@ -7,11 +7,13 @@ challenges.
 See https://developer.leaseweb.com/api-docs/domains_v2.html for the full API.
 """
 
+from typing import List
+from certbot_dns_leaseweb.utils import to_fqdn
+
+
 import requests
 
-from certbot_dns_leaseweb.utils import (
-    to_fqdn
-)
+
 
 LEASEWEB_DOMAIN_API_ENDPOINT="https://api.leaseweb.com/hosting/v2/domains"
 # https://developer.leaseweb.com/api-docs/domains_v2.html#operation/post/domains/{domainName}/resourceRecordSets
@@ -165,7 +167,7 @@ class LeasewebClient:
         self,
         domain_name: str,
         name: str,
-        content: list[str],
+        content: List[str],
         record_type: str = "TXT",
         ttl: int = 60,
     ):  # pylint: disable=too-many-arguments

@@ -11,6 +11,7 @@ image:
 
 test:
 	pip install .[test]
+	tox -e lint
 	tox
 
 install :
