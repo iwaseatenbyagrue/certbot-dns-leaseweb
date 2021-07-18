@@ -1,21 +1,20 @@
-# You can override the included template(s) by including variable overrides
-# SAST customization: https://docs.gitlab.com/ee/user/application_security/sast/#customizing-the-sast-settings
-# Secret Detection customization: https://docs.gitlab.com/ee/user/application_security/secret_detection/#customizing-settings
-# Dependency Scanning customization: https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#customizing-the-dependency-scanning-settings
-# Note that environment variables can be set in several places
-# See https://docs.gitlab.com/ee/ci/variables/#cicd-variable-precedence
 image: python:3.9
+
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
 cache:
   paths:
   - ".cache/pip"
   - venv/
+
 before_script:
 - python -V
 - pip install virtualenv
 - virtualenv venv
 - source venv/bin/activate
+
+# Build package 
 build:
   stage: build
   script:
@@ -23,15 +22,22 @@ build:
   artifacts:
     paths:
     - dist/*.whl
+
+# Run linting and test suite
 test:
   stage: test
   script:
   - pip install .[test]
   - tox -e lint
   - tox
-stages:
-- test
+
+# Run security scanning 
 sast:
   stage: test
+
+stages:
+- build
+- test
+
 include:
 - template: Security/SAST.gitlab-ci.yml
