@@ -14,8 +14,8 @@ before_script:
 - virtualenv venv
 - source venv/bin/activate
 
-# Build package 
-build:
+# Build package
+build_bdist:
   stage: build
   script:
   - python setup.py bdist_wheel
@@ -31,13 +31,17 @@ test:
   - tox -e lint
   - tox
 
-# Run security scanning 
-sast:
-  stage: test
-
 stages:
 - build
 - test
+- deploy
 
-include:
-- template: Security/SAST.gitlab-ci.yml
+deploy_gitlab_pypi:
+  stage: deploy
+  script:
+  - pip install twine
+  - TWINE_PASSWORD=${CI_JOB_TOKEN} TWINE_USERNAME=gitlab-ci-token python -m twine upload --repository-url ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi dist/*
+  only:
+  - tags
+  dependencies:
+  - build_bdist
