@@ -10,14 +10,11 @@ See https://developer.leaseweb.com/api-docs/domains_v2.html for the full API.
 from typing import List
 from certbot_dns_leaseweb.utils import to_fqdn
 
-
 import requests
 
-
-
-LEASEWEB_DOMAIN_API_ENDPOINT="https://api.leaseweb.com/hosting/v2/domains"
+LEASEWEB_DOMAIN_API_ENDPOINT = "https://api.leaseweb.com/hosting/v2/domains"
 # https://developer.leaseweb.com/api-docs/domains_v2.html#operation/post/domains/{domainName}/resourceRecordSets
-LEASEWEB_VALID_TTLS=[
+LEASEWEB_VALID_TTLS = [
     60, 300, 1800, 3600, 14400, 28800, 43200, 86400
 ]
 
@@ -72,11 +69,12 @@ class ValidationFailureException(LeasewebException):
             *args
         )
 
+
 class InvalidTTLException(LeasewebException):
     """ Exception indicating that the requested TTL is not permitted.
 
-    Leasweb's API allows a small number of predefined TTL values, this exception
-    indicates the requested TTL is not one of the allowed values.
+    Leasweb's API allows a small number of predefined TTL values, this
+    exception indicates the requested TTL is not one of the allowed values.
     """
 
     def __init__(
@@ -94,7 +92,6 @@ class LeasewebClient:
     complete dns-01 challenges.
     """
 
-
     def __init__(
         self,
         token: str
@@ -111,7 +108,6 @@ class LeasewebClient:
         self.session.headers.update(self.headers)
         self._api_endpoint = LEASEWEB_DOMAIN_API_ENDPOINT
 
-
     @property
     def headers(
         self
@@ -122,7 +118,6 @@ class LeasewebClient:
             "Content-Type": "application/json",
             "X-LSW-Auth": self.token,
         }
-
 
     def delete_record(
         self,
@@ -142,26 +137,28 @@ class LeasewebClient:
         :raises .NotAuthorisedException: API token is either invalid, or not
                                          authorised to perform the requested
                                          operation.
-
+        :raises .LeasewebException: Any error not covered by a more specific
+                                    error class.
         """
 
         fqdn = to_fqdn(name)
         response = self.session.delete(
-            f"{self._api_endpoint}/{domain_name}/resourceRecordSets/{fqdn}/{record_type}"
+            (
+                f"{self._api_endpoint}/{domain_name}/resourceRecordSets/"
+                f"{fqdn}/{record_type}"
+            )
         )
 
         if response.status_code == 204:
             return
 
-
         if response.status_code == 404:
             raise RecordNotFoundException(domain=domain_name, name=name)
 
-        if response.status_code in [401,403]:
+        if response.status_code in [401, 403]:
             raise NotAuthorisedException()
 
         raise LeasewebException(response.json["error_message"])
-
 
     def add_record(
         self,
@@ -184,12 +181,14 @@ class LeasewebClient:
                     and 86400.
         :raises .InvalidTTLException: Specified TTL is not one of the allowed
                                       values.
-        :raises .ValidationFailureException: Indicates the record name or content
-                                             may not be valid for its domain or
-                                             type.
+        :raises .ValidationFailureException: Indicates the record name or
+                                             content may not be valid for its
+                                             domain or type.
         :raises .NotAuthorisedException: API token is either invalid, or not
                                          authorised to perform the requested
                                          operation.
+        :raises .LeasewebException: Any error not covered by a more specific
+                                    error class.
         """
 
         if ttl not in LEASEWEB_VALID_TTLS:
@@ -211,7 +210,7 @@ class LeasewebClient:
         if response.status_code == 400:
             raise ValidationFailureException()
 
-        if response.status_code in [401,403]:
+        if response.status_code in [401, 403]:
             raise NotAuthorisedException()
 
         raise LeasewebException(response.json["error_message"])
