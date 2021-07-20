@@ -61,3 +61,6 @@ class LeasewebClientTest(unittest.TestCase):
                 self.record_name,
                 "TXT",
             )
+
+if __name__ == '__main__':
+    unittest.main()

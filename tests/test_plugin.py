@@ -2,8 +2,8 @@
 Unit tests for LeasewebClient
 """
 
-import mock
 import unittest
+import unittest.mock as mock
 
 from certbot import errors
 from certbot.compat import os
@@ -63,3 +63,6 @@ class LeasewebAuthenticatorTest(
             )
         ]
         self.assertEqual(expected, self.mock_client.mock_calls)
+
+if __name__ == '__main__':
+    unittest.main()
