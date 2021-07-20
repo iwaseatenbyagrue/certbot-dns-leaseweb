@@ -15,6 +15,7 @@ from certbot_dns_leaseweb.plugin import (
     LeasewebAuthenticator
 )
 
+
 class LeasewebAuthenticatorTest(
     test_util.TempDirTestCase,
     dns_test_common.BaseAuthenticatorTest,
@@ -42,7 +43,6 @@ class LeasewebAuthenticatorTest(
         # _get_client | pylint: disable=protected-access
         self.auth._get_client = mock.MagicMock(return_value=self.mock_client)
 
-
     @test_util.patch_get_utility()
     def test_perform(self, unused_mock_get_utility):
         """ feature: performing a DNS challenge should create a DNS record.
@@ -55,7 +55,6 @@ class LeasewebAuthenticatorTest(
         self.mock_client.add_record.assert_called_with(
             DOMAIN, "_acme-challenge." + DOMAIN, mock.ANY
         )
-
 
     def test_cleanup(self):
         """ feature: cleaning up a DNS challenge should delete a DNS record.

@@ -11,6 +11,7 @@ from certbot_dns_leaseweb.client import (
     LEASEWEB_DOMAIN_API_ENDPOINT
 )
 
+
 class LeasewebClientTest(unittest.TestCase):
     """ Test suite for certbot_dns_leaseweb.client.LeasewebClient.
     """
@@ -35,7 +36,10 @@ class LeasewebClientTest(unittest.TestCase):
         """
         with requests_mock.Mocker() as mock:
             mock.post(
-                f"{LEASEWEB_DOMAIN_API_ENDPOINT}/{self.record_domain}/resourceRecordSets",
+                str(
+                    f"{LEASEWEB_DOMAIN_API_ENDPOINT}"
+                    f"/{self.record_domain}/resourceRecordSets"
+                ),
                 status_code=201,
             )
             # Default type and ttl
@@ -52,7 +56,6 @@ class LeasewebClientTest(unittest.TestCase):
                 "TXT",
                 self.record_ttl
             )
-
 
     def test_delete_record(self):
         """ feature: delete a DNS record
@@ -82,6 +85,7 @@ class LeasewebClientTest(unittest.TestCase):
                 self.record_name,
                 "TXT",
             )
+
 
 if __name__ == '__main__':
     unittest.main()
