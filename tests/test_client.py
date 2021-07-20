@@ -3,7 +3,7 @@ Unit tests for LeasewebClient
 """
 
 import unittest
-import requests
+
 import requests_mock
 
 from certbot_dns_leaseweb.client import (
@@ -12,6 +12,9 @@ from certbot_dns_leaseweb.client import (
 )
 
 class LeasewebClientTest(unittest.TestCase):
+    """ Test suite for certbot_dns_leaseweb.client.LeasewebClient.
+    """
+
     record_domain = "test.test"
     record_name = "test"
     record_content = ["test content"]
@@ -23,6 +26,13 @@ class LeasewebClientTest(unittest.TestCase):
         self.client = LeasewebClient(self.api_token)
 
     def test_add_record(self):
+        """ feature: create a DNS record.
+
+        Given a domain name, a record name, and some content
+        When I add a new DNS record
+        Then a new DNS record should be created
+        And it should be of type 'TXT' by default.
+        """
         with requests_mock.Mocker() as mock:
             mock.post(
                 f"{LEASEWEB_DOMAIN_API_ENDPOINT}/{self.record_domain}/resourceRecordSets",
@@ -45,9 +55,20 @@ class LeasewebClientTest(unittest.TestCase):
 
 
     def test_delete_record(self):
+        """ feature: delete a DNS record
+
+        Given a domain name and a record name
+        When I delete a DNS record
+        Then the DNS record should be removed
+        And it should be of type 'TXT' by default.
+        """
         with requests_mock.Mocker() as mock:
             mock.delete(
-                f"{LEASEWEB_DOMAIN_API_ENDPOINT}/{self.record_domain}/resourceRecordSets/{self.record_name}/TXT",
+                (
+                    f"{LEASEWEB_DOMAIN_API_ENDPOINT}/"
+                    f"{self.record_domain}/resourceRecordSets/"
+                    f"{self.record_name}/TXT"
+                ),
                 status_code=204,
             )
             # Default type

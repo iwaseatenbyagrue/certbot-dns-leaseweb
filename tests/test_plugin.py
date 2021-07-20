@@ -3,17 +3,14 @@ Unit tests for LeasewebClient
 """
 
 import unittest
-import unittest.mock as mock
 
-from certbot import errors
+from unittest import mock
+
 from certbot.compat import os
 from certbot.plugins import dns_test_common
 from certbot.plugins.dns_test_common import DOMAIN
 from certbot.tests import util as test_util
 
-from certbot_dns_leaseweb.client import (
-    LEASEWEB_DOMAIN_API_ENDPOINT
-)
 from certbot_dns_leaseweb.plugin import (
     LeasewebAuthenticator
 )
@@ -22,6 +19,8 @@ class LeasewebAuthenticatorTest(
     test_util.TempDirTestCase,
     dns_test_common.BaseAuthenticatorTest,
 ):
+    """ Test suite for `certbot_dns_leaseweb.plugin.LeasewebAuthenticator`.
+    """
 
     def setUp(self):
         super().setUp()
@@ -46,6 +45,12 @@ class LeasewebAuthenticatorTest(
 
     @test_util.patch_get_utility()
     def test_perform(self, unused_mock_get_utility):
+        """ feature: performing a DNS challenge should create a DNS record.
+
+        Given a DNS-01 challenge
+        When the LeasewebAuthenticator is used
+        Then a new TXT record should be added to the appropriate domain.
+        """
         self.auth.perform([self.achall])
         self.mock_client.add_record.assert_called_with(
             DOMAIN, "_acme-challenge." + DOMAIN, mock.ANY
@@ -53,6 +58,13 @@ class LeasewebAuthenticatorTest(
 
 
     def test_cleanup(self):
+        """ feature: cleaning up a DNS challenge should delete a DNS record.
+
+        Given a DNS-01 challenge has been performed
+        When the LeasewebAuthenticator is cleaning up
+        Then a TXT record should be deleted from the appropriate domain.
+        """
+
         # _attempt_cleanup | pylint: disable=protected-access
         self.auth._attempt_cleanup = True
         self.auth.cleanup([self.achall])
@@ -63,6 +75,7 @@ class LeasewebAuthenticatorTest(
             )
         ]
         self.assertEqual(expected, self.mock_client.mock_calls)
+
 
 if __name__ == '__main__':
     unittest.main()
