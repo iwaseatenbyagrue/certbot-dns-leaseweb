@@ -166,17 +166,25 @@ class LeasewebClient:
             elif response.status_code in [401, 403]:
                 raise NotAuthorisedException()
 
-            else:
-                # If leaseweb gives us an error, use that. Otherwise fall back to the response reason.
-                if "error_message" in response.json():
-                    raise LeasewebException(response.json()["error_message"])
-                else:
-                    raise LeasewebException(response.reason)
+            LeasewebClient._report_error(response)
 
         return domains
 
+    @classmethod
+    def _report_error(cls, response):
+        """ Switches between leaseweb errors (preferred) and http exceptions.
 
-    def _domain_sort(self, domain):
+        If leaseweb gives us an error (in json), use that. Otherwise,
+        fall back to the response reason.
+        """
+
+        if "error_message" in response.json():
+            raise LeasewebException(response.json()["error_message"])
+
+        raise LeasewebException(response.reason)
+
+    @classmethod
+    def _domain_sort(cls, domain):
         """ Sort domains. Use this with sorted(<domains>, key=self._domain_sort)
         """
         return list(reversed(domain.split('.')))
@@ -192,7 +200,7 @@ class LeasewebClient:
 
         domains = self._get_all_zones()
 
-        for zone_name in reversed(sorted(domains, key=self._domain_sort)):
+        for zone_name in reversed(sorted(domains, key=LeasewebClient._domain_sort)):
             if domain.endswith(zone_name):
                 return zone_name
 
@@ -292,8 +300,4 @@ class LeasewebClient:
         if response.status_code in [401,403]:
             raise NotAuthorisedException()
 
-        # If leaseweb gives us an error, use that. Otherwise fall back to the response reason.
-        if "error_message" in response.json():
-            raise LeasewebException(response.json()["error_message"])
-        else:
-            raise LeasewebException(response.reason)
+        LeasewebClient._report_error(response)
