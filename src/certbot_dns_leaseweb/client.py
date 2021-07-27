@@ -209,9 +209,13 @@ class LeasewebClient:
             return
 
         if response.status_code == 400:
-            raise ValidationFailureException()
+            raise ValidationFailureException(response.reason)
 
         if response.status_code in [401,403]:
             raise NotAuthorisedException()
 
-        raise LeasewebException(response.json["error_message"])
+        # If leaseweb gives us an error, use that. Otherwise fall back to the response reason.
+        if "error_message" in response.json():
+            raise LeasewebException(response.json()["error_message"])
+        else:
+            raise LeasewebException(response.reason)
