@@ -20,6 +20,8 @@ LEASEWEB_DOMAIN_API_ENDPOINT="https://api.leaseweb.com/hosting/v2/domains"
 LEASEWEB_VALID_TTLS=[
     60, 300, 1800, 3600, 14400, 28800, 43200, 86400
 ]
+# https://developer.leaseweb.com/api-docs/domains_v2.html#operation/get/domains
+LEASEWEB_REQUEST_LIMIT=10
 
 
 class LeasewebException(Exception):
@@ -88,6 +90,20 @@ class InvalidTTLException(LeasewebException):
             *args
         )
 
+class DomainNotFoundException(LeasewebException):
+    """ Exception indicating we can not determine the assigned domain.
+
+    If the domain can not be found in the domain list, we do not know
+    where to create/delete the records for your domain name.
+    """
+    def __init__(
+        self,
+        *args
+    ):
+        super().__init__(
+                "Domain not found",
+                *args
+        )
 
 class LeasewebClient:
     """ A helper dealing with the parts of the Leaseweb Domains API needed to
@@ -123,6 +139,65 @@ class LeasewebClient:
             "X-LSW-Auth": self.token,
         }
 
+    def _get_all_zones(self):
+        """ Gets all the domains from the api
+
+        :raises .NotAuthorisedException: API token is either invalid, or not
+                                         authorised to perform the requested
+                                         operation.
+        :raises .LeasewebException: Whenever an unexpected error occurs from the api.
+        """
+        domains = []
+        offset = 0
+
+        while True:
+            response = self.session.get(
+                f"{self._api_endpoint}?limit={LEASEWEB_REQUEST_LIMIT}&offset={offset}"
+            )
+
+            if response.status_code == 200:
+                domains.extend([e["domainName"] for e in response.json()["domains"]])
+
+                total_count = response.json()["_metadata"]["totalCount"]
+                offset += LEASEWEB_REQUEST_LIMIT
+                if offset > total_count:
+                    break
+
+            elif response.status_code in [401, 403]:
+                raise NotAuthorisedException()
+
+            else:
+                # If leaseweb gives us an error, use that. Otherwise fall back to the response reason.
+                if "error_message" in response.json():
+                    raise LeasewebException(response.json()["error_message"])
+                else:
+                    raise LeasewebException(response.reason)
+
+        return domains
+
+
+    def _domain_sort(self, domain):
+        """ Sort domains. Use this with sorted(<domains>, key=self._domain_sort)
+        """
+        return list(reversed(domain.split('.')))
+
+
+    def _find_managed_zone(self, domain):
+        """ Find the longest matching domain in the api.
+
+        :param domain: The name of the domain to find managed zone for.
+
+        :raises DomainNotFoundException: The managed domain could not be found.
+        """
+
+        domains = self._get_all_zones()
+
+        for zone_name in reversed(sorted(domains, key=self._domain_sort)):
+            if domain.endswith(zone_name):
+                return zone_name
+
+        raise DomainNotFoundException(domain)
+
 
     def delete_record(
         self,
@@ -145,14 +220,15 @@ class LeasewebClient:
 
         """
 
+        zone_id = self._find_managed_zone(domain_name)
+
         fqdn = to_fqdn(name)
         response = self.session.delete(
-            f"{self._api_endpoint}/{domain_name}/resourceRecordSets/{fqdn}/{record_type}"
+            f"{self._api_endpoint}/{zone_id}/resourceRecordSets/{fqdn}/{record_type}"
         )
 
         if response.status_code == 204:
             return
-
 
         if response.status_code == 404:
             raise RecordNotFoundException(domain=domain_name, name=name)
@@ -195,8 +271,10 @@ class LeasewebClient:
         if ttl not in LEASEWEB_VALID_TTLS:
             raise InvalidTTLException()
 
+        zone_id = self._find_managed_zone(domain_name)
+
         response = self.session.post(
-            f"{self._api_endpoint}/{domain_name}/resourceRecordSets",
+            f"{self._api_endpoint}/{zone_id}/resourceRecordSets",
             json={
                 "name": to_fqdn(name),
                 "type": record_type,
