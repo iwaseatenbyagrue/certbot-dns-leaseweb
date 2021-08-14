@@ -2,13 +2,16 @@
 Unit tests for LeasewebClient
 """
 
+import secrets
 import unittest
 
 import requests_mock
 
 from certbot_dns_leaseweb.client import (
     LeasewebClient,
-    LEASEWEB_DOMAIN_API_ENDPOINT
+    DomainNotFoundException,
+    LEASEWEB_DOMAIN_API_ENDPOINT,
+    LEASEWEB_DOMAIN_API_LIST_LIMIT
 )
 
 
@@ -35,6 +38,21 @@ class LeasewebClientTest(unittest.TestCase):
         And it should be of type 'TXT' by default.
         """
         with requests_mock.Mocker() as mock:
+            # Mock the response for `LeasewebClient#domains`.
+            mock.get(
+                (
+                    f"{LEASEWEB_DOMAIN_API_ENDPOINT}"
+                    f"?offset=0"
+                    f"&limit={LEASEWEB_DOMAIN_API_LIST_LIMIT}"
+                    f"&type=dns"
+                ),
+                status_code=200,
+                json={
+                    "domains": [{"domainName": self.record_domain}],
+                    "_metadata": {"totalCount": 1}
+                },
+            )
+
             mock.post(
                 str(
                     f"{LEASEWEB_DOMAIN_API_ENDPOINT}"
@@ -66,6 +84,21 @@ class LeasewebClientTest(unittest.TestCase):
         And it should be of type 'TXT' by default.
         """
         with requests_mock.Mocker() as mock:
+            # Mock the response for `LeasewebClient#domains`.
+            mock.get(
+                (
+                    f"{LEASEWEB_DOMAIN_API_ENDPOINT}"
+                    f"?offset=0"
+                    f"&limit={LEASEWEB_DOMAIN_API_LIST_LIMIT}"
+                    f"&type=dns"
+                ),
+                status_code=200,
+                json={
+                    "domains": [{"domainName": self.record_domain}],
+                    "_metadata": {"totalCount": 1}
+                },
+            )
+
             mock.delete(
                 (
                     f"{LEASEWEB_DOMAIN_API_ENDPOINT}/"
@@ -74,6 +107,7 @@ class LeasewebClientTest(unittest.TestCase):
                 ),
                 status_code=204,
             )
+
             # Default type
             self.client.delete_record(
                 self.record_domain,
@@ -85,6 +119,40 @@ class LeasewebClientTest(unittest.TestCase):
                 self.record_name,
                 "TXT",
             )
+
+    def test_get_managed_domain_name(self):
+        """ feature: Strip subdomains to find owned domain
+
+        Given I have a domain of "example.com"
+        When I request a certificate for "subdomain.example.com"
+        Then the certbot plugin should add a record to "example.com"
+        """
+
+        with requests_mock.Mocker() as mock:
+            # Mock the response for `LeasewebClient#domains`.
+            mock.get(
+                (
+                    f"{LEASEWEB_DOMAIN_API_ENDPOINT}"
+                    f"?offset=0"
+                    f"&limit={LEASEWEB_DOMAIN_API_LIST_LIMIT}"
+                    f"&type=dns"
+                ),
+                status_code=200,
+                json={
+                    "domains": [{"domainName": self.record_domain}],
+                    "_metadata": {"totalCount": 1}
+                },
+            )
+
+            for subdomain in ["test", "test.test", "test.test.test"]:
+                managed_domain = self.client._get_managed_domain_name(
+                    f"{subdomain}.{self.record_domain}"
+                )
+
+                assert managed_domain == self.record_domain
+
+            with self.assertRaises(DomainNotFoundException):
+                self.client._get_managed_domain_name(secrets.token_hex(32))
 
 
 if __name__ == '__main__':

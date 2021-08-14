@@ -10,6 +10,7 @@ cache:
 
 before_script:
 - python -V
+- pip install --upgrade pip
 - pip install virtualenv
 - virtualenv venv
 - source venv/bin/activate
