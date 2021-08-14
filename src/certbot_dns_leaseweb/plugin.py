@@ -29,6 +29,17 @@ class LeasewebAuthenticator(dns_common.DNSAuthenticator):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.credentials = None
+        self._client = None
+
+    @property
+    def client(self):
+        """ Return a LeasewebClient instance initialised with the supplied
+        credentials.
+        """
+
+        if self._client is None:
+            self._client = self._get_client()
+        return self._client
 
     @classmethod
     def add_parser_arguments(cls, add):     # pylint: disable=arguments-differ
@@ -56,7 +67,7 @@ class LeasewebAuthenticator(dns_common.DNSAuthenticator):
 
     def _perform(self, domain: str, validation_name: str, validation: str):
         try:
-            self._get_client().add_record(
+            self.client.add_record(
                 domain,
                 validation_name,
                 [validation],
@@ -68,7 +79,7 @@ class LeasewebAuthenticator(dns_common.DNSAuthenticator):
             raise errors.PluginError(exception)
 
     def _cleanup(self, domain: str, validation_name: str, validation: str):
-        self._get_client().delete_record(
+        self.client.delete_record(
             domain,
             validation_name,
         )

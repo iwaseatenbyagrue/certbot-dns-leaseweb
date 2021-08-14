@@ -10,4 +10,5 @@ def to_fqdn(name: str) -> str:
 
     if "." in name and not name.endswith("."):
         return f"{name}."
+
     return name

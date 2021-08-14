@@ -8,6 +8,7 @@ See https://developer.leaseweb.com/api-docs/domains_v2.html for the full API.
 """
 
 from typing import List
+from certbot.plugins.dns_common import base_domain_name_guesses
 from certbot_dns_leaseweb.utils import to_fqdn
 
 import requests
@@ -17,11 +18,30 @@ LEASEWEB_DOMAIN_API_ENDPOINT = "https://api.leaseweb.com/hosting/v2/domains"
 LEASEWEB_VALID_TTLS = [
     60, 300, 1800, 3600, 14400, 28800, 43200, 86400
 ]
+# A bit of poking shows that 64k is a valid resultset size limit for the domain
+# list endpoint.
+# 2**32 is too high, and the actual limit is not documented.
+# https://developer.leaseweb.com/api-docs/domains_v2.html#operation/get/domains
+LEASEWEB_DOMAIN_API_LIST_LIMIT = 2**16
 
 
 class LeasewebException(Exception):
     """ Base exception for LeasewebClient.
     """
+
+
+class ExceededRateLimitException(LeasewebException):
+    """ Indicates the API returned a 429.
+    """
+
+    def __init__(
+        self,
+        *args
+    ):
+        super().__init__(
+            "Exceeded rate limit, API returned status code 429.",
+            *args
+        )
 
 
 class NotAuthorisedException(LeasewebException):
@@ -38,8 +58,24 @@ class NotAuthorisedException(LeasewebException):
         )
 
 
+class DomainNotFoundException(LeasewebException):
+    """ No domain or parent domain managed by this account matches the provided
+    string.
+    """
+
+    def __init__(
+        self,
+        domain,
+        *args
+    ):
+        super().__init__(
+            f"No managed domain found for domain: {domain}",
+            *args
+        )
+
+
 class RecordNotFoundException(LeasewebException):
-    """ Domain or domain record missing exception, indicating a 404 status code.
+    """ Domain record missing exception, indicating a 404 status code.
     """
 
     def __init__(
@@ -94,7 +130,7 @@ class LeasewebClient:
 
     def __init__(
         self,
-        token: str
+        token: str,
     ):
         """
         Initialise client by providing a valid API token.
@@ -107,6 +143,7 @@ class LeasewebClient:
         self.session = requests.Session()
         self.session.headers.update(self.headers)
         self._api_endpoint = LEASEWEB_DOMAIN_API_ENDPOINT
+        self._domains = set()
 
     @property
     def headers(
@@ -118,6 +155,41 @@ class LeasewebClient:
             "Content-Type": "application/json",
             "X-LSW-Auth": self.token,
         }
+
+    @property
+    def domains(
+        self
+    ) -> set:
+        """ Get a (frozen)set of domains the client/token can manage.
+        """
+
+        if len(self._domains) < 1:
+            page = 0
+            while True:
+                response = self.session.get(
+                    f"{self._api_endpoint}"
+                    f"?limit={LEASEWEB_DOMAIN_API_LIST_LIMIT}"
+                    f"&offset={page * LEASEWEB_DOMAIN_API_LIST_LIMIT}"
+                    f"&type=dns"
+                )
+                if response.status_code in [401, 403]:
+                    raise NotAuthorisedException()
+
+                if response.status_code == 429:
+                    raise ExceededRateLimitException()
+
+                data = response.json()
+
+                self._domains.update(
+                    [domain["domainName"] for domain in data["domains"]]
+                )
+
+                page += 1
+                current_count = page * LEASEWEB_DOMAIN_API_LIST_LIMIT
+                if data["_metadata"]["totalCount"] <= current_count:
+                    break
+
+        return self._domains
 
     def delete_record(
         self,
@@ -141,11 +213,12 @@ class LeasewebClient:
                                     error class.
         """
 
-        fqdn = to_fqdn(name)
+        managed_domain = self._get_managed_domain_name(domain_name)
+
         response = self.session.delete(
             (
-                f"{self._api_endpoint}/{domain_name}/resourceRecordSets/"
-                f"{fqdn}/{record_type}"
+                f"{self._api_endpoint}/{managed_domain}/resourceRecordSets/"
+                f"{to_fqdn(name)}/{record_type}"
             )
         )
 
@@ -157,6 +230,9 @@ class LeasewebClient:
 
         if response.status_code in [401, 403]:
             raise NotAuthorisedException()
+
+        if response.status_code == 429:
+            raise ExceededRateLimitException()
 
         raise LeasewebException(response.json["error_message"])
 
@@ -194,8 +270,10 @@ class LeasewebClient:
         if ttl not in LEASEWEB_VALID_TTLS:
             raise InvalidTTLException()
 
+        managed_domain = self._get_managed_domain_name(domain_name)
+
         response = self.session.post(
-            f"{self._api_endpoint}/{domain_name}/resourceRecordSets",
+            f"{self._api_endpoint}/{managed_domain}/resourceRecordSets",
             json={
                 "name": to_fqdn(name),
                 "type": record_type,
@@ -213,4 +291,19 @@ class LeasewebClient:
         if response.status_code in [401, 403]:
             raise NotAuthorisedException()
 
+        if response.status_code == 429:
+            raise ExceededRateLimitException()
+
         raise LeasewebException(response.json["error_message"])
+
+    def _get_managed_domain_name(self, record_name) -> str:
+        """ Find the name of the domain matching the specified record name.
+        """
+
+        try:
+            domain_name, *_ = self.domains.intersection(
+                set(base_domain_name_guesses(record_name))
+            )
+            return domain_name
+        except ValueError as err:
+            raise DomainNotFoundException(record_name) from err
