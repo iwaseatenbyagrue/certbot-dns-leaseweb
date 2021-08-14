@@ -96,6 +96,18 @@ docker run --rm -ti \
       -d '*.example.com'
 ```
 
+Issues and development
+-----------------------
+
+Please report any issues (or improvement suggestions) at https://gitlab.com/iwaseatenbyagrue/certbot-dns-leaseweb/-/issues.
+
+If you want to hack on this project, please make sure you run tests and linting
+on your code:
+
+```
+make test
+```
+
 Thanks
 ------
 
